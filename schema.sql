@@ -284,38 +284,94 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================
--- Trigger: Update profile stats on drink insert
+-- Trigger: Update profile stats on drink changes (Insert, Update, Delete)
 -- ============================================
-CREATE OR REPLACE FUNCTION public.handle_new_drink()
+CREATE OR REPLACE FUNCTION public.update_profile_stats_on_drink_change()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id UUID;
+  v_total_drinks INT;
+  v_total_spent DECIMAL(10,2);
+  v_xp INT;
+  v_level INT;
+  v_streak INT := 0;
+  v_current_date DATE := CURRENT_DATE;
+  v_last_date DATE := NULL;
+  r RECORD;
 BEGIN
-  UPDATE profiles SET
-    total_drinks = total_drinks + 1,
-    total_spent = total_spent + COALESCE(NEW.cost, 0),
-    xp = xp + 10,
+  -- Determine which user's stats we need to recalculate
+  IF TG_OP = 'DELETE' THEN
+    v_user_id := OLD.user_id;
+  ELSE
+    v_user_id := NEW.user_id;
+  END IF;
+
+  -- 1. Recalculate total drinks and total spent
+  SELECT COALESCE(COUNT(*), 0), COALESCE(SUM(cost), 0)
+  INTO v_total_drinks, v_total_spent
+  FROM public.drinks
+  WHERE user_id = v_user_id;
+
+  -- 2. Recalculate XP (10 XP per drink)
+  v_xp := v_total_drinks * 10;
+
+  -- 3. Calculate Level based on XP thresholds
+  v_level := CASE 
+    WHEN v_xp >= 2000 THEN 6
+    WHEN v_xp >= 1000 THEN 5
+    WHEN v_xp >= 600 THEN 4
+    WHEN v_xp >= 300 THEN 3
+    WHEN v_xp >= 100 THEN 2
+    ELSE 1
+  END;
+
+  -- 4. Calculate Streak
+  FOR r IN (
+    SELECT DISTINCT DATE(created_at) AS drink_date
+    FROM public.drinks
+    WHERE user_id = v_user_id
+    ORDER BY drink_date DESC
+  ) LOOP
+    IF v_last_date IS NULL THEN
+      IF r.drink_date = v_current_date OR r.drink_date = v_current_date - INTERVAL '1 day' THEN
+        v_streak := 1;
+        v_last_date := r.drink_date;
+      ELSE
+        EXIT;
+      END IF;
+    ELSE
+      IF r.drink_date = v_last_date - INTERVAL '1 day' THEN
+        v_streak := v_streak + 1;
+        v_last_date := r.drink_date;
+      ELSE
+        EXIT;
+      END IF;
+    END IF;
+  END LOOP;
+
+  -- 5. Update the profiles table
+  UPDATE public.profiles SET
+    total_drinks = v_total_drinks,
+    total_spent = v_total_spent,
+    xp = v_xp,
+    level = v_level,
+    streak_days = v_streak,
     updated_at = NOW()
-  WHERE id = NEW.user_id;
-  
-  -- Check level up
-  UPDATE profiles SET level = 
-    CASE 
-      WHEN xp >= 2000 THEN 6
-      WHEN xp >= 1000 THEN 5
-      WHEN xp >= 600 THEN 4
-      WHEN xp >= 300 THEN 3
-      WHEN xp >= 100 THEN 2
-      ELSE 1
-    END
-  WHERE id = NEW.user_id;
-  
-  RETURN NEW;
+  WHERE id = v_user_id;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  ELSE
+    RETURN NEW;
+  END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS on_drink_created ON drinks;
-CREATE TRIGGER on_drink_created
-  AFTER INSERT ON drinks
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_drink();
+DROP TRIGGER IF EXISTS on_drink_changes ON drinks;
+CREATE TRIGGER on_drink_changes
+  AFTER INSERT OR UPDATE OR DELETE ON drinks
+  FOR EACH ROW EXECUTE FUNCTION public.update_profile_stats_on_drink_change();
 
 -- ============================================
 -- Seed Achievements

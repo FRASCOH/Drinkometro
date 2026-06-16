@@ -27,6 +27,7 @@ function AddDrinkContent() {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [existingMediaUrl, setExistingMediaUrl] = useState('');
   const [publishStory, setPublishStory] = useState(false);
+  const [storyCaption, setStoryCaption] = useState('');
   const [loading, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -253,7 +254,7 @@ function AddDrinkContent() {
           drink_id: drink.id,
           media_url: mediaUrl,
           media_type: mediaType,
-          caption: `${getDrinkEmoji(drinkType)} ${drinkName || drinkType}`,
+          caption: storyCaption.trim() || `${getDrinkEmoji(drinkType)} ${drinkName || drinkType}`,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
       }
@@ -498,7 +499,7 @@ function AddDrinkContent() {
       {/* Publish to Story Toggle */}
       {mediaFile && (
         <div className="section">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: publishStory ? 'var(--space-md)' : 0 }}>
             <div>
               <div style={{ fontWeight: 600 }}>📱 Pubblica nella storia</div>
               <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>
@@ -512,6 +513,20 @@ function AddDrinkContent() {
               aria-checked={publishStory}
             />
           </div>
+
+          {publishStory && (
+            <div className="glass-input-wrapper animate-fade-in-up" style={{ marginTop: 'var(--space-md)' }}>
+              <label htmlFor="story-text">Testo sulla storia</label>
+              <input
+                id="story-text"
+                type="text"
+                className="glass-input"
+                placeholder="Scrivi un testo che apparirà sulla storia..."
+                value={storyCaption}
+                onChange={(e) => setStoryCaption(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       )}
 

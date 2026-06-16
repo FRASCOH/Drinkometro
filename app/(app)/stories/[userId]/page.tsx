@@ -94,6 +94,32 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
     }
   };
 
+  const handleDeleteStory = async () => {
+    const currentStory = stories[currentIndex];
+    if (!currentStory || !confirm('Sei sicuro di voler eliminare questa storia?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', currentStory.id);
+
+      if (error) throw error;
+
+      const updatedStories = stories.filter((_, i) => i !== currentIndex);
+      if (updatedStories.length === 0) {
+        router.back();
+      } else {
+        setStories(updatedStories);
+        setCurrentIndex(prev => Math.min(prev, updatedStories.length - 1));
+        setProgress(0);
+      }
+    } catch (e) {
+      console.error('Error deleting story:', e);
+      alert('Errore durante l\'eliminazione della storia.');
+    }
+  };
+
   const sendReaction = async (emoji: string) => {
     if (!stories[currentIndex]) return;
     await supabase.from('story_reactions').insert({
@@ -144,7 +170,16 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
             {currentStory?.caption}
           </div>
         </div>
-        <button onClick={() => router.back()} style={{ color: 'white', fontSize: '1.2rem', padding: 8 }}>
+        {storyUser?.id === user?.id && (
+          <button 
+            onClick={handleDeleteStory} 
+            style={{ color: 'var(--accent-danger)', fontSize: '1.2rem', padding: 8, marginRight: 8, background: 'none', border: 'none', cursor: 'pointer' }}
+            title="Elimina storia"
+          >
+            🗑️
+          </button>
+        )}
+        <button onClick={() => router.back()} style={{ color: 'white', fontSize: '1.2rem', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}>
           ✕
         </button>
       </div>

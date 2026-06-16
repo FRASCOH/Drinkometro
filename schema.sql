@@ -245,6 +245,18 @@ CREATE POLICY "Creators can update clubs" ON clubs FOR UPDATE USING (auth.uid() 
 -- Club members: viewable by all, manageable by admins
 CREATE POLICY "Anyone can view club members" ON club_members FOR SELECT USING (true);
 CREATE POLICY "Auth users can join clubs" ON club_members FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can add club members" ON club_members FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM club_members cm
+    WHERE cm.club_id = club_members.club_id
+    AND cm.user_id = auth.uid()
+    AND cm.role = 'admin'
+  ) OR EXISTS (
+    SELECT 1 FROM clubs c
+    WHERE c.id = club_members.club_id
+    AND c.created_by = auth.uid()
+  )
+);
 CREATE POLICY "Users can leave clubs" ON club_members FOR DELETE USING (auth.uid() = user_id);
 
 -- Challenges: viewable by club members

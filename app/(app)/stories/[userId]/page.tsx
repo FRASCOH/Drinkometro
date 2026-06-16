@@ -43,10 +43,10 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
   useEffect(() => {
     // Mark as viewed
     if (stories[currentIndex] && user) {
-      supabase.from('story_views').upsert({
-        story_id: stories[currentIndex].id,
-        viewer_id: user.id,
-      }).then(() => {});
+      supabase.from('story_views').upsert(
+        { story_id: stories[currentIndex].id, viewer_id: user.id },
+        { onConflict: 'story_id,viewer_id' }
+      ).then(() => {});
     }
   }, [currentIndex]);
 

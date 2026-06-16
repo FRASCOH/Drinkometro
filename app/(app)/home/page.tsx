@@ -10,9 +10,12 @@ import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const { user, profile } = useApp();
-  const [drinks, setDrinks] = useState<(Drink & { profiles: Profile })[]>([]);
+  const [drinks, setDrinks] = useState<any[]>([]);
   const [stories, setStories] = useState<{ user_id: string; profiles: Profile; stories: Story[] }[]>([]);
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [activeCommentsDrinkId, setActiveCommentsDrinkId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState('');
   const router = useRouter();
   const supabase = createClient();
 
@@ -25,10 +28,9 @@ export default function HomePage() {
 
   const loadFeed = async () => {
     try {
-      // Get own drinks + friends' drinks
       const { data } = await supabase
         .from('drinks')
-        .select('*, profiles(*)')
+        .select('*, profiles(*), drink_reactions(*), drink_comments(*, profiles(*))')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -42,15 +44,23 @@ export default function HomePage() {
 
   const loadStories = async () => {
     try {
-      const { data } = await supabase
+      const { data: storiesData } = await supabase
         .from('stories')
         .select('*, profiles(*)')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (data) {
+      if (storiesData && user) {
+        const { data: userViews } = await supabase
+          .from('story_views')
+          .select('story_id')
+          .eq('viewer_id', user.id);
+
+        const viewedSet = new Set<string>(userViews?.map(v => v.story_id) || []);
+        setViewedStoryIds(viewedSet);
+
         // Group by user
-        const grouped = data.reduce((acc: any, story: any) => {
+        const grouped = storiesData.reduce((acc: any, story: any) => {
           const existing = acc.find((g: any) => g.user_id === story.user_id);
           if (existing) {
             existing.stories.push(story);
@@ -71,18 +81,86 @@ export default function HomePage() {
   };
 
   const handleReaction = async (drinkId: string) => {
-    await supabase.from('drink_reactions').upsert({
-      drink_id: drinkId,
-      user_id: user.id,
-      emoji: '🔥',
-    });
-    // Optimistic update
-    setDrinks(prev => prev.map(d => {
-      if (d.id === drinkId) {
-        return { ...d, user_reacted: !d.user_reacted };
+    if (!user) return;
+
+    const drink = drinks.find(d => d.id === drinkId);
+    const existingReaction = drink?.drink_reactions?.find((r: any) => r.user_id === user.id);
+
+    try {
+      if (existingReaction) {
+        await supabase
+          .from('drink_reactions')
+          .delete()
+          .eq('id', existingReaction.id);
+
+        setDrinks(prev => prev.map(d => {
+          if (d.id === drinkId) {
+            return {
+              ...d,
+              drink_reactions: d.drink_reactions.filter((r: any) => r.user_id !== user.id)
+            };
+          }
+          return d;
+        }));
+      } else {
+        const { data, error } = await supabase
+          .from('drink_reactions')
+          .insert({
+            drink_id: drinkId,
+            user_id: user.id,
+            emoji: '🔥',
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setDrinks(prev => prev.map(d => {
+            if (d.id === drinkId) {
+              return {
+                ...d,
+                drink_reactions: [...(d.drink_reactions || []), data]
+              };
+            }
+            return d;
+          }));
+        }
       }
-      return d;
-    }));
+    } catch (e) {
+      console.error('Error processing reaction:', e);
+    }
+  };
+
+  const handleAddComment = async (drinkId: string) => {
+    if (!commentText.trim() || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('drink_comments')
+        .insert({
+          drink_id: drinkId,
+          user_id: user.id,
+          content: commentText.trim()
+        })
+        .select('*, profiles(*)')
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setDrinks(prev => prev.map(d => {
+          if (d.id === drinkId) {
+            return {
+              ...d,
+              drink_comments: [...(d.drink_comments || []), data]
+            };
+          }
+          return d;
+        }));
+        setCommentText('');
+      }
+    } catch (e) {
+      console.error('Error adding comment:', e);
+    }
   };
 
   const downloadMedia = async (url: string, filename: string) => {
@@ -138,27 +216,54 @@ export default function HomePage() {
       {/* Stories Bar */}
       <div className="stories-bar">
         {/* Your story */}
-        <Link href="/add-drink" className="story-item">
-          <div style={{ position: 'relative' }}>
-            <div className="avatar-placeholder avatar-lg" style={{ opacity: 0.6 }}>
-              {profile?.display_name?.[0]?.toUpperCase() || '?'}
-            </div>
-            <div className="story-add-btn">+</div>
-          </div>
-          <span>La tua storia</span>
-        </Link>
+        {(() => {
+          const myGroup = stories.find(s => s.user_id === user?.id);
+          const myLastStory = myGroup?.stories?.[0];
+          const myHasUnseen = myGroup ? myGroup.stories.some((s: any) => !viewedStoryIds.has(s.id)) : false;
+
+          return (
+            <Link href={myLastStory ? `/stories/${user?.id}` : '/add-drink'} className="story-item">
+              <div style={{ position: 'relative' }}>
+                <div className={`avatar-story-ring ${myLastStory ? (myHasUnseen ? 'unseen' : 'seen') : ''}`}>
+                  <div className="avatar-placeholder avatar-lg" style={{ overflow: 'hidden', padding: 0 }}>
+                    {myLastStory ? (
+                      myLastStory.media_type === 'video' ? (
+                        <video src={myLastStory.media_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
+                      ) : (
+                        <img src={myLastStory.media_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Tu" />
+                      )
+                    ) : (
+                      profile?.display_name?.[0]?.toUpperCase() || '?'
+                    )}
+                  </div>
+                </div>
+                {!myLastStory && <div className="story-add-btn">+</div>}
+              </div>
+              <span>La tua storia</span>
+            </Link>
+          );
+        })()}
 
         {/* Friends' stories */}
-        {stories.map((group) => (
-          <Link key={group.user_id} href={`/stories/${group.user_id}`} className="story-item">
-            <div className="avatar-story-ring unseen">
-              <div className="avatar-placeholder avatar-lg">
-                {group.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+        {stories.filter(group => group.user_id !== user?.id).map((group) => {
+          const lastStory = group.stories[0];
+          const hasUnseen = group.stories.some((story: any) => !viewedStoryIds.has(story.id));
+
+          return (
+            <Link key={group.user_id} href={`/stories/${group.user_id}`} className="story-item">
+              <div className={`avatar-story-ring ${hasUnseen ? 'unseen' : 'seen'}`}>
+                <div className="avatar-placeholder avatar-lg" style={{ overflow: 'hidden', padding: 0 }}>
+                  {lastStory.media_type === 'video' ? (
+                    <video src={lastStory.media_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
+                  ) : (
+                    <img src={lastStory.media_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  )}
+                </div>
               </div>
-            </div>
-            <span>{group.profiles?.display_name || group.profiles?.username}</span>
-          </Link>
-        ))}
+              <span>{group.profiles?.display_name || group.profiles?.username}</span>
+            </Link>
+          );
+        })}
 
         {stories.length === 0 && (
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 var(--space-md)', color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>
@@ -271,12 +376,59 @@ export default function HomePage() {
                   <div className="drink-card-actions">
                     <button
                       onClick={() => handleReaction(drink.id)}
-                      className={drink.user_reacted ? 'active' : ''}
+                      className={drink.drink_reactions?.some((r: any) => r.user_id === user?.id) ? 'active' : ''}
                     >
-                      🔥 Reagisci
+                      🔥 {drink.drink_reactions?.length || 0}
                     </button>
-                    <button>💬 Commenta</button>
+                    <button 
+                      onClick={() => setActiveCommentsDrinkId(activeCommentsDrinkId === drink.id ? null : drink.id)}
+                      className={activeCommentsDrinkId === drink.id ? 'active' : ''}
+                    >
+                      💬 {drink.drink_comments?.length || 0}
+                    </button>
                   </div>
+
+                  {/* Comments Drawer */}
+                  {activeCommentsDrinkId === drink.id && (
+                    <div style={{ marginTop: 'var(--space-md)', borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-md)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', maxHeight: '180px', overflowY: 'auto', marginBottom: 'var(--space-md)' }}>
+                        {drink.drink_comments?.map((c: any) => (
+                          <div key={c.id} style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start', fontSize: 'var(--font-sm)' }}>
+                            <div className="avatar-placeholder avatar-sm" style={{ width: 28, height: 28, fontSize: '0.75rem', flexShrink: 0 }}>
+                              {c.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div style={{ background: 'var(--glass-bg)', padding: '6px 12px', borderRadius: 'var(--radius-md)', flex: 1 }}>
+                              <span style={{ fontWeight: 600, marginRight: 8 }}>{c.profiles?.display_name || c.profiles?.username}</span>
+                              <span style={{ color: 'var(--text-secondary)' }}>{c.content}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {(!drink.drink_comments || drink.drink_comments.length === 0) && (
+                          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', textAlign: 'center', padding: '8px 0' }}>
+                            Nessun commento. Sii il primo a commentare!
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="glass-input"
+                          style={{ padding: '8px 12px', fontSize: 'var(--font-sm)', borderRadius: 'var(--radius-md)', flex: 1 }}
+                          placeholder="Scrivi un commento..."
+                          value={commentText}
+                          onChange={e => setCommentText(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddComment(drink.id); }}
+                        />
+                        <button 
+                          onClick={() => handleAddComment(drink.id)} 
+                          className="glass-btn glass-btn-primary" 
+                          style={{ padding: '8px 16px', fontSize: 'var(--font-sm)', borderRadius: 'var(--radius-md)' }}
+                        >
+                          Invia
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

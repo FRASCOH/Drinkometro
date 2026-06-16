@@ -166,9 +166,6 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
           <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)' }}>
             {storyUser?.display_name || storyUser?.username}
           </div>
-          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-            {currentStory?.caption}
-          </div>
         </div>
         {storyUser?.id === user?.id && (
           <button 
@@ -207,6 +204,31 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
             alt="Story"
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
           />
+        )}
+
+        {/* Caption Overlay */}
+        {currentStory.caption && (
+          <div 
+            style={{
+              position: 'absolute',
+              bottom: '15%',
+              left: '10%',
+              right: '10%',
+              textAlign: 'center',
+              color: (currentStory as any).caption_color === 'black' ? '#000000' : '#ffffff',
+              fontSize: '1.4rem',
+              fontWeight: 800,
+              textShadow: (currentStory as any).caption_color === 'black'
+                ? '0 0 10px rgba(255, 255, 255, 0.95), 0 0 3px rgba(255, 255, 255, 0.8)'
+                : '0 0 10px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.8)',
+              padding: '8px 16px',
+              pointerEvents: 'none',
+              wordWrap: 'break-word',
+              zIndex: 10
+            }}
+          >
+            {currentStory.caption}
+          </div>
         )}
       </div>
 

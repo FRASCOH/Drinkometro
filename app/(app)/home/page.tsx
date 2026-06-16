@@ -372,6 +372,23 @@ export default function HomePage() {
                     </div>
                   )}
 
+                  {drink.notes && (
+                    <div style={{ 
+                      marginTop: 'var(--space-md)', 
+                      fontSize: 'var(--font-sm)', 
+                      color: 'var(--text-primary)', 
+                      fontStyle: 'italic', 
+                      background: 'rgba(255, 255, 255, 0.03)', 
+                      padding: '10px 14px', 
+                      borderRadius: 'var(--radius-md)', 
+                      borderLeft: '3px solid var(--accent-primary)',
+                      lineHeight: '1.4',
+                      marginBottom: 'var(--space-sm)'
+                    }}>
+                      "{drink.notes}"
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="drink-card-actions">
                     <button

@@ -409,3 +409,8 @@ CREATE POLICY "Allow authenticated uploads to media" ON storage.objects
 CREATE POLICY "Allow owners to delete their media" ON storage.objects
   FOR DELETE TO authenticated USING (bucket_id = 'media' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+-- ============================================
+-- Migration: Add caption_color to stories
+-- ============================================
+ALTER TABLE public.stories ADD COLUMN IF NOT EXISTS caption_color TEXT DEFAULT 'white';
+

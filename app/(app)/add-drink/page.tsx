@@ -28,6 +28,7 @@ function AddDrinkContent() {
   const [existingMediaUrl, setExistingMediaUrl] = useState('');
   const [publishStory, setPublishStory] = useState(false);
   const [storyCaption, setStoryCaption] = useState('');
+  const [captionColor, setCaptionColor] = useState('white');
   const [loading, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -221,6 +222,7 @@ function AddDrinkContent() {
         mood_emoji: moodEmoji || null,
         media_url: mediaUrl || null,
         media_type: mediaFile ? mediaType : (mediaPreview ? mediaType : null),
+        notes: storyCaption.trim() || null,
       };
 
       let drink;
@@ -255,6 +257,7 @@ function AddDrinkContent() {
           media_url: mediaUrl,
           media_type: mediaType,
           caption: storyCaption.trim() || `${getDrinkEmoji(drinkType)} ${drinkName || drinkType}`,
+          caption_color: captionColor,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
       }
@@ -525,6 +528,44 @@ function AddDrinkContent() {
                 value={storyCaption}
                 onChange={(e) => setStoryCaption(e.target.value)}
               />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Colore testo:</span>
+                <button
+                  type="button"
+                  onClick={() => setCaptionColor('white')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: captionColor === 'white' ? 'white' : 'var(--glass-bg)',
+                    color: captionColor === 'white' ? 'black' : 'white',
+                    border: '1px solid var(--glass-border)',
+                    fontSize: 'var(--font-xs)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  ⚪ Bianco
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCaptionColor('black')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: captionColor === 'black' ? 'white' : 'var(--glass-bg)',
+                    color: captionColor === 'black' ? 'black' : 'white',
+                    border: '1px solid var(--glass-border)',
+                    fontSize: 'var(--font-xs)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  ⚫ Nero
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -342,3 +342,14 @@ ON CONFLICT DO NOTHING;
 -- Create bucket "media" with public access
 -- Set file size limit to 5MB
 -- Allowed MIME types: image/*, video/*
+
+-- Policies for "media" bucket
+CREATE POLICY "Allow public read access to media" ON storage.objects
+  FOR SELECT USING (bucket_id = 'media');
+
+CREATE POLICY "Allow authenticated uploads to media" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'media');
+
+CREATE POLICY "Allow owners to delete their media" ON storage.objects
+  FOR DELETE TO authenticated USING (bucket_id = 'media' AND auth.uid()::text = (storage.foldername(name))[1]);
+

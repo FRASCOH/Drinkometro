@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/lib/context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DRINK_TYPES, MOODS, CURRENCIES, getDrinkEmoji, getCurrencySymbol } from '@/lib/utils';
 
-export default function AddDrinkPage() {
+function AddDrinkContent() {
   const { user, currency } = useApp();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -527,5 +527,17 @@ export default function AddDrinkPage() {
         </button>
       </div>
     </>
+  );
+}
+
+export default function AddDrinkPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2xl)' }}>
+        <div className="spinner" />
+      </div>
+    }>
+      <AddDrinkContent />
+    </Suspense>
   );
 }

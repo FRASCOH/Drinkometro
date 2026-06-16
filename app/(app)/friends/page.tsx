@@ -13,6 +13,7 @@ export default function FriendsPage() {
   const [requests, setRequests] = useState<(Profile & { friendship_id: string })[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [suggestions, setSuggestions] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -20,6 +21,7 @@ export default function FriendsPage() {
     if (user) {
       loadFriends();
       loadRequests();
+      loadSuggestions();
     }
   }, [user]);
 
@@ -68,6 +70,30 @@ export default function FriendsPage() {
     }
   };
 
+  const loadSuggestions = async () => {
+    try {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', user.id)
+        .limit(30);
+
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+      const friendIds = new Set(
+        friendships?.map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id) || []
+      );
+
+      const filtered = profiles?.filter(p => !friendIds.has(p.id)).slice(0, 5) || [];
+      setSuggestions(filtered);
+    } catch (e) {
+      console.error('Error loading suggestions:', e);
+    }
+  };
+
   const searchUsers = async (query: string) => {
     setSearchQuery(query);
     if (query.length < 2) {
@@ -91,6 +117,7 @@ export default function FriendsPage() {
       addressee_id: friendId,
     });
     setSearchResults(prev => prev.filter(u => u.id !== friendId));
+    setSuggestions(prev => prev.filter(u => u.id !== friendId));
   };
 
   const acceptRequest = async (friendshipId: string) => {
@@ -133,13 +160,44 @@ export default function FriendsPage() {
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="section animate-fade-in">
-          <div className="section-title">🔎 Risultati</div>
+          <div className="section-title">🔎 Risultati della ricerca</div>
           <div className="glass-card-flat">
             {searchResults.map((u) => (
               <div key={u.id} className="friend-item">
-                <div className="avatar-placeholder avatar-md">
-                  {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                {u.avatar_url ? (
+                  <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                ) : (
+                  <div className="avatar-placeholder avatar-md">
+                    {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="friend-info">
+                  <h4>{u.display_name || u.username}</h4>
+                  <span>@{u.username} · Lv.{u.level}</span>
                 </div>
+                <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => sendRequest(u.id)}>
+                  Aggiungi
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {!searchQuery && suggestions.length > 0 && (
+        <div className="section animate-fade-in" style={{ marginBottom: 'var(--space-md)' }}>
+          <div className="section-title">✨ Consigliati per te</div>
+          <div className="glass-card-flat">
+            {suggestions.map((u) => (
+              <div key={u.id} className="friend-item">
+                {u.avatar_url ? (
+                  <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                ) : (
+                  <div className="avatar-placeholder avatar-md">
+                    {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                  </div>
+                )}
                 <div className="friend-info">
                   <h4>{u.display_name || u.username}</h4>
                   <span>@{u.username} · Lv.{u.level}</span>
@@ -175,9 +233,13 @@ export default function FriendsPage() {
             <div className="glass-card-flat stagger">
               {friends.map((friend) => (
                 <Link key={friend.id} href={`/profile/${friend.id}`} className="friend-item">
-                  <div className="avatar-placeholder avatar-md">
-                    {friend.display_name?.[0]?.toUpperCase() || friend.username[0].toUpperCase()}
-                  </div>
+                  {friend.avatar_url ? (
+                    <img src={friend.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                  ) : (
+                    <div className="avatar-placeholder avatar-md">
+                      {friend.display_name?.[0]?.toUpperCase() || friend.username[0].toUpperCase()}
+                    </div>
+                  )}
                   <div className="friend-info">
                     <h4>{friend.display_name || friend.username}</h4>
                     <span>@{friend.username} · Lv.{friend.level} · {friend.total_drinks} drink</span>
@@ -199,9 +261,13 @@ export default function FriendsPage() {
             <div className="glass-card-flat stagger">
               {requests.map((req) => (
                 <div key={req.id} className="friend-item">
-                  <div className="avatar-placeholder avatar-md">
-                    {req.display_name?.[0]?.toUpperCase() || req.username[0].toUpperCase()}
-                  </div>
+                  {req.avatar_url ? (
+                    <img src={req.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                  ) : (
+                    <div className="avatar-placeholder avatar-md">
+                      {req.display_name?.[0]?.toUpperCase() || req.username[0].toUpperCase()}
+                    </div>
+                  )}
                   <div className="friend-info">
                     <h4>{req.display_name || req.username}</h4>
                     <span>@{req.username}</span>

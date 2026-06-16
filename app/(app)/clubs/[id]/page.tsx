@@ -21,6 +21,9 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   });
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [friendsList, setFriendsList] = useState<Profile[]>([]);
+  const [inviteSearch, setInviteSearch] = useState('');
   const supabase = createClient();
 
   useEffect(() => {
@@ -68,26 +71,48 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
     loadChallenges();
   };
 
-  const inviteFriend = async () => {
-    const username = prompt('Inserisci lo username dell\'amico da invitare:');
-    if (!username) return;
+  const loadFriendsToInvite = async () => {
+    try {
+      const { data: f1 } = await supabase
+        .from('friendships')
+        .select('id, requester_id, addressee_id, profiles!friendships_addressee_id_fkey(*)')
+        .eq('requester_id', user.id)
+        .eq('status', 'accepted');
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username.toLowerCase())
-      .single();
+      const { data: f2 } = await supabase
+        .from('friendships')
+        .select('id, requester_id, addressee_id, profiles!friendships_requester_id_fkey(*)')
+        .eq('addressee_id', user.id)
+        .eq('status', 'accepted');
 
-    if (profile) {
-      await supabase.from('club_members').insert({
-        club_id: id,
-        user_id: profile.id,
-        role: 'member',
-      });
+      const allFriends: any[] = [];
+      f1?.forEach((f: any) => { if (f.profiles) allFriends.push(f.profiles); });
+      f2?.forEach((f: any) => { if (f.profiles) allFriends.push(f.profiles); });
+
+      const memberIds = new Set(members.map(m => m.id));
+      const filtered = allFriends.filter(f => !memberIds.has(f.id));
+      setFriendsList(filtered);
+    } catch (e) {
+      console.error('Error loading friends to invite:', e);
+    }
+  };
+
+  const openInviteModal = () => {
+    setShowInviteModal(true);
+    setInviteSearch('');
+    loadFriendsToInvite();
+  };
+
+  const handleAddMember = async (friendId: string) => {
+    const { error } = await supabase.from('club_members').insert({
+      club_id: id,
+      user_id: friendId,
+      role: 'member',
+    });
+
+    if (!error) {
+      setFriendsList(prev => prev.filter(f => f.id !== friendId));
       loadMembers();
-      alert(`${username} aggiunto al club!`);
-    } else {
-      alert('Utente non trovato');
     }
   };
 
@@ -117,7 +142,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
           <h1>{club?.name || 'Club'}</h1>
           <div className="page-header-sub">{members.length} membri</div>
         </div>
-        <button className="glass-btn glass-btn-sm" onClick={inviteFriend}>
+        <button className="glass-btn glass-btn-sm" onClick={openInviteModal}>
           ➕ Invita
         </button>
       </div>
@@ -144,9 +169,13 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
                 <div className={`leaderboard-rank ${getRankStyle(i)}`}>
                   {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                 </div>
-                <div className="avatar-placeholder avatar-md">
-                  {member.display_name?.[0]?.toUpperCase() || '?'}
-                </div>
+                {member.avatar_url ? (
+                  <img src={member.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                ) : (
+                  <div className="avatar-placeholder avatar-md">
+                    {member.display_name?.[0]?.toUpperCase() || member.username?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
                 <div className="leaderboard-info">
                   <h4>{member.display_name || member.username}</h4>
                   <span>Lv.{member.level} · {member.total_drinks} drink</span>
@@ -246,15 +275,81 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
           <div className="glass-card-flat stagger">
             {members.map(member => (
               <Link key={member.id} href={`/profile/${member.id}`} className="friend-item">
-                <div className="avatar-placeholder avatar-md">
-                  {member.display_name?.[0]?.toUpperCase() || '?'}
-                </div>
+                {member.avatar_url ? (
+                  <img src={member.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                ) : (
+                  <div className="avatar-placeholder avatar-md">
+                    {member.display_name?.[0]?.toUpperCase() || member.username?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
                 <div className="friend-info">
                   <h4>{member.display_name || member.username}</h4>
                   <span>@{member.username} · {member.role === 'admin' ? '👑 Admin' : 'Membro'}</span>
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Invite Modal Overlay */}
+      {showInviteModal && (
+        <div className="modal-overlay" onClick={() => setShowInviteModal(false)} style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: 'var(--space-md)'
+        }}>
+          <div className="glass-card animate-scale-up" onClick={(e) => e.stopPropagation()} style={{
+            width: '100%', maxWidth: '450px', padding: 'var(--space-lg)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+              <h3 style={{ margin: 0 }}>Invita Amici</h3>
+              <button className="glass-btn glass-btn-sm" onClick={() => setShowInviteModal(false)} style={{ minWidth: 'auto', padding: 'var(--space-xs) var(--space-sm)' }}>✕</button>
+            </div>
+            
+            <div className="search-bar" style={{ margin: 'var(--space-md) 0' }}>
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder="Cerca tra i tuoi amici..."
+                value={inviteSearch}
+                onChange={(e) => setInviteSearch(e.target.value)}
+              />
+            </div>
+            
+            <div className="invite-list" style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {friendsList.filter(f => 
+                (f.display_name || '').toLowerCase().includes(inviteSearch.toLowerCase()) || 
+                f.username.toLowerCase().includes(inviteSearch.toLowerCase())
+              ).length > 0 ? (
+                friendsList.filter(f => 
+                  (f.display_name || '').toLowerCase().includes(inviteSearch.toLowerCase()) || 
+                  f.username.toLowerCase().includes(inviteSearch.toLowerCase())
+                ).map((friend) => (
+                  <div key={friend.id} className="friend-item" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 'var(--space-xs)' }}>
+                    {friend.avatar_url ? (
+                      <img src={friend.avatar_url} className="avatar avatar-md" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    ) : (
+                      <div className="avatar-placeholder avatar-md" style={{ width: '40px', height: '40px' }}>
+                        {friend.display_name?.[0]?.toUpperCase() || friend.username[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="friend-info" style={{ flex: 1, marginLeft: 'var(--space-sm)' }}>
+                      <h4 style={{ margin: 0 }}>{friend.display_name || friend.username}</h4>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>@{friend.username}</span>
+                    </div>
+                    <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => handleAddMember(friend.id)}>
+                      Invita
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', padding: 'var(--space-lg) 0', color: 'var(--text-muted)' }}>
+                  Nessun amico da invitare
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

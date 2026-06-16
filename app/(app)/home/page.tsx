@@ -6,12 +6,14 @@ import { useApp } from '@/lib/context';
 import { timeAgo, getDrinkEmoji, getMoodEmoji, formatCurrency } from '@/lib/utils';
 import type { Drink, Story, Profile } from '@/lib/utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const { user, profile } = useApp();
   const [drinks, setDrinks] = useState<(Drink & { profiles: Profile })[]>([]);
   const [stories, setStories] = useState<{ user_id: string; profiles: Profile; stories: Story[] }[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
@@ -97,6 +99,23 @@ export default function HomePage() {
     }
   };
 
+  const handleDeleteDrink = async (drinkId: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questo drink?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('drinks')
+        .delete()
+        .eq('id', drinkId);
+
+      if (error) throw error;
+      setDrinks(prev => prev.filter(d => d.id !== drinkId));
+    } catch (e) {
+      console.error('Error deleting drink:', e);
+      alert('Errore durante l\'eliminazione del drink.');
+    }
+  };
+
   return (
     <>
       {/* Header */}
@@ -173,6 +192,24 @@ export default function HomePage() {
                       <span>{timeAgo(drink.created_at)}</span>
                     </div>
                   </div>
+                  {drink.user_id === user?.id && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => router.push(`/add-drink?edit=${drink.id}`)} 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '4px' }} 
+                        title="Modifica"
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDrink(drink.id)} 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '4px' }} 
+                        title="Elimina"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Media */}

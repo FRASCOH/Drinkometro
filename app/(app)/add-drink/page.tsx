@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/lib/context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DRINK_TYPES, MOODS, CURRENCIES, getDrinkEmoji, getCurrencySymbol } from '@/lib/utils';
 
 export default function AddDrinkPage() {
   const { user, currency } = useApp();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get('edit');
   const supabase = createClient();
 
   const [drinkType, setDrinkType] = useState('');
@@ -23,11 +25,52 @@ export default function AddDrinkPage() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState('');
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [existingMediaUrl, setExistingMediaUrl] = useState('');
   const [publishStory, setPublishStory] = useState(false);
   const [loading, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    if (editId && user) {
+      loadDrinkToEdit(editId);
+    }
+  }, [editId, user]);
+
+  const loadDrinkToEdit = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('drinks')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        if (data.user_id !== user?.id) {
+          router.push('/home');
+          return;
+        }
+        setDrinkType(data.drink_type);
+        setDrinkName(data.drink_name || '');
+        setQuantity(data.quantity.toString());
+        setQuantityUnit(data.quantity_unit);
+        setCost(data.cost ? data.cost.toString() : '');
+        setSelectedCurrency(data.currency);
+        setLocation(data.location || '');
+        setMood(data.mood || '');
+        setMoodEmoji(data.mood_emoji || '');
+        if (data.media_url) {
+          setExistingMediaUrl(data.media_url);
+          setMediaPreview(data.media_url);
+          setMediaType(data.media_type || 'image');
+        }
+      }
+    } catch (e) {
+      console.error('Error loading drink to edit:', e);
+    }
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -144,7 +187,7 @@ export default function AddDrinkPage() {
     setSaving(true);
 
     try {
-      let mediaUrl = null;
+      let mediaUrl = existingMediaUrl;
 
       // Upload media if present
       if (mediaFile) {
@@ -160,27 +203,46 @@ export default function AddDrinkPage() {
           .from('media')
           .getPublicUrl(fileName);
         mediaUrl = urlData.publicUrl;
+      } else if (!mediaPreview) {
+        mediaUrl = '';
       }
 
-      // Insert drink
-      const { data: drink, error: drinkError } = await supabase
-        .from('drinks')
-        .insert({
-          user_id: user.id,
-          drink_type: drinkType,
-          drink_name: drinkName || null,
-          quantity: parseFloat(quantity) || 0,
-          quantity_unit: quantityUnit,
-          cost: cost ? parseFloat(cost) : null,
-          currency: selectedCurrency,
-          location: location || null,
-          mood: mood || null,
-          mood_emoji: moodEmoji || null,
-          media_url: mediaUrl,
-          media_type: mediaFile ? mediaType : null,
-        })
-        .select()
-        .single();
+      const drinkData = {
+        user_id: user.id,
+        drink_type: drinkType,
+        drink_name: drinkName || null,
+        quantity: parseFloat(quantity) || 0,
+        quantity_unit: quantityUnit,
+        cost: cost ? parseFloat(cost) : null,
+        currency: selectedCurrency,
+        location: location || null,
+        mood: mood || null,
+        mood_emoji: moodEmoji || null,
+        media_url: mediaUrl || null,
+        media_type: mediaFile ? mediaType : (mediaPreview ? mediaType : null),
+      };
+
+      let drink;
+      let drinkError;
+
+      if (editId) {
+        const { data, error } = await supabase
+          .from('drinks')
+          .update(drinkData)
+          .eq('id', editId)
+          .select()
+          .single();
+        drink = data;
+        drinkError = error;
+      } else {
+        const { data, error } = await supabase
+          .from('drinks')
+          .insert(drinkData)
+          .select()
+          .single();
+        drink = data;
+        drinkError = error;
+      }
 
       if (drinkError) throw drinkError;
 
@@ -229,8 +291,8 @@ export default function AddDrinkPage() {
     return (
       <div className="auth-page">
         <div className="auth-logo animate-bounce-in">🎉</div>
-        <h1 className="auth-title">Drink salvato!</h1>
-        <p className="auth-subtitle">+10 XP guadagnati</p>
+        <h1 className="auth-title">{editId ? 'Drink modificato!' : 'Drink salvato!'}</h1>
+        <p className="auth-subtitle">{editId ? 'I dati sono stati aggiornati' : '+10 XP guadagnati'}</p>
       </div>
     );
   }
@@ -239,8 +301,8 @@ export default function AddDrinkPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Aggiungi Drink</h1>
-          <div className="page-header-sub">Registra cosa stai bevendo</div>
+          <h1>{editId ? 'Modifica Drink' : 'Aggiungi Drink'}</h1>
+          <div className="page-header-sub">{editId ? 'Aggiorna i dettagli del tuo drink' : 'Registra cosa stai bevendo'}</div>
         </div>
         <button onClick={() => router.back()} className="glass-btn glass-btn-sm">
           ✕
@@ -461,7 +523,7 @@ export default function AddDrinkPage() {
           disabled={!drinkType || loading}
           style={{ padding: '16px', fontSize: 'var(--font-md)' }}
         >
-          {loading ? '⏳ Salvataggio...' : '🍹 Salva Drink'}
+          {loading ? '⏳ Salvataggio...' : (editId ? '💾 Aggiorna Drink' : '🍹 Salva Drink')}
         </button>
       </div>
     </>

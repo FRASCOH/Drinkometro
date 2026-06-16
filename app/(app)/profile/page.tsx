@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/lib/context';
 import { getLevel, getDrinkEmoji, formatCurrency, CURRENCIES } from '@/lib/utils';
@@ -13,7 +13,11 @@ export default function ProfilePage() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ display_name: '', bio: '', username: '' });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -49,21 +53,49 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = async () => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: editForm.display_name,
-        bio: editForm.bio,
-      })
-      .eq('id', user.id);
+    setSavingAvatar(true);
+    try {
+      let avatarUrl: string | null = profile?.avatar_url || null;
+      if (avatarFile) {
+        const ext = avatarFile.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/avatar_${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(fileName, avatarFile, { cacheControl: '86400', upsert: true });
 
-    if (!error && profile) {
-      setProfile({
-        ...profile,
-        display_name: editForm.display_name,
-        bio: editForm.bio,
-      });
-      setEditing(false);
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('media')
+          .getPublicUrl(fileName);
+        avatarUrl = urlData.publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          display_name: editForm.display_name,
+          bio: editForm.bio,
+          avatar_url: avatarUrl,
+        })
+        .eq('id', user.id);
+
+      if (!error && profile) {
+        setProfile({
+          ...profile,
+          display_name: editForm.display_name,
+          bio: editForm.bio,
+          avatar_url: avatarUrl,
+        });
+        setEditing(false);
+        setAvatarFile(null);
+        setAvatarPreview('');
+      }
+    } catch (e) {
+      console.error('Error saving profile:', e);
+      alert('Errore durante il salvataggio del profilo.');
+    } finally {
+      setSavingAvatar(false);
     }
   };
 
@@ -86,9 +118,13 @@ export default function ProfilePage() {
     <>
       {/* Profile Header */}
       <div className="profile-header animate-fade-in-up">
-        <div className="avatar-placeholder avatar-xl" style={{ margin: '0 auto var(--space-md)' }}>
-          {profile.display_name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()}
-        </div>
+        {profile.avatar_url ? (
+          <img src={profile.avatar_url} className="avatar avatar-xl" style={{ margin: '0 auto var(--space-md)', display: 'block', width: '88px', height: '88px', borderRadius: '50%', objectFit: 'cover' }} alt="Avatar" />
+        ) : (
+          <div className="avatar-placeholder avatar-xl" style={{ margin: '0 auto var(--space-md)' }}>
+            {profile.display_name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()}
+          </div>
+        )}
         <div className="profile-name">{profile.display_name || profile.username}</div>
         <div className="profile-username">@{profile.username}</div>
         {profile.bio && <div className="profile-bio">{profile.bio}</div>}
@@ -142,6 +178,45 @@ export default function ProfilePage() {
         <div className="section animate-fade-in-up">
           <div className="glass-card">
             <div className="section-title">✏️ Modifica Profilo</div>
+            
+            {/* Avatar Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="avatar-placeholder avatar-lg"
+                style={{ 
+                  cursor: 'pointer', 
+                  overflow: 'hidden', 
+                  position: 'relative',
+                  border: '2px dashed var(--glass-border)'
+                }}
+              >
+                {avatarPreview ? (
+                  <img src={avatarPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                ) : profile.avatar_url ? (
+                  <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" />
+                ) : (
+                  <span>📷</span>
+                )}
+              </div>
+              <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '8px', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
+                Cambia immagine
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setAvatarFile(file);
+                    setAvatarPreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+            </div>
+
             <div className="glass-input-wrapper">
               <label>Nome visualizzato</label>
               <input className="glass-input" value={editForm.display_name}
@@ -153,10 +228,10 @@ export default function ProfilePage() {
                 onChange={e => setEditForm({...editForm, bio: e.target.value})} />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="glass-btn glass-btn-primary glass-btn-full" onClick={handleSaveProfile}>
-                💾 Salva
+              <button className="glass-btn glass-btn-primary glass-btn-full" onClick={handleSaveProfile} disabled={savingAvatar}>
+                {savingAvatar ? '⏳ Salvataggio...' : '💾 Salva'}
               </button>
-              <button className="glass-btn" onClick={() => setEditing(false)}>Annulla</button>
+              <button className="glass-btn" onClick={() => { setEditing(false); setAvatarPreview(''); setAvatarFile(null); }}>Annulla</button>
             </div>
           </div>
         </div>

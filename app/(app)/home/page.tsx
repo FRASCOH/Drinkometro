@@ -233,7 +233,11 @@ export default function HomePage() {
                         <img src={myLastStory.media_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Tu" />
                       )
                     ) : (
-                      profile?.display_name?.[0]?.toUpperCase() || '?'
+                      profile?.avatar_url ? (
+                        <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                      ) : (
+                        profile?.display_name?.[0]?.toUpperCase() || '?'
+                      )
                     )}
                   </div>
                 </div>
@@ -289,9 +293,13 @@ export default function HomePage() {
                 {/* Card Header */}
                 <div className="drink-card-header">
                   <div className="drink-card-user">
-                    <div className="avatar-placeholder avatar-md">
-                      {drink.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                    </div>
+                    {drink.profiles?.avatar_url ? (
+                      <img src={drink.profiles.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    ) : (
+                      <div className="avatar-placeholder avatar-md">
+                        {drink.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
                     <div className="drink-card-user-info">
                       <h3>{drink.profiles?.display_name || drink.profiles?.username}</h3>
                       <span>{timeAgo(drink.created_at)}</span>
@@ -411,9 +419,13 @@ export default function HomePage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', maxHeight: '180px', overflowY: 'auto', marginBottom: 'var(--space-md)' }}>
                         {drink.drink_comments?.map((c: any) => (
                           <div key={c.id} style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start', fontSize: 'var(--font-sm)' }}>
-                            <div className="avatar-placeholder avatar-sm" style={{ width: 28, height: 28, fontSize: '0.75rem', flexShrink: 0 }}>
-                              {c.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                            </div>
+                            {c.profiles?.avatar_url ? (
+                              <img src={c.profiles.avatar_url} className="avatar avatar-sm" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                            ) : (
+                              <div className="avatar-placeholder avatar-sm" style={{ width: 28, height: 28, fontSize: '0.75rem', flexShrink: 0 }}>
+                                {c.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
                             <div style={{ background: 'var(--glass-bg)', padding: '6px 12px', borderRadius: 'var(--radius-md)', flex: 1 }}>
                               <span style={{ fontWeight: 600, marginRight: 8 }}>{c.profiles?.display_name || c.profiles?.username}</span>
                               <span style={{ color: 'var(--text-secondary)' }}>{c.content}</span>

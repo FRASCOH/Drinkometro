@@ -68,9 +68,13 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
       </div>
 
       <div className="profile-header animate-fade-in-up">
-        <div className="avatar-placeholder avatar-xl" style={{ margin: '0 auto var(--space-md)' }}>
-          {profile.display_name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()}
-        </div>
+        {profile.avatar_url ? (
+          <img src={profile.avatar_url} className="avatar avatar-xl" style={{ margin: '0 auto var(--space-md)', display: 'block', width: '88px', height: '88px', borderRadius: '50%', objectFit: 'cover' }} alt="Avatar" />
+        ) : (
+          <div className="avatar-placeholder avatar-xl" style={{ margin: '0 auto var(--space-md)' }}>
+            {profile.display_name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()}
+          </div>
+        )}
         <div className="profile-name">{profile.display_name || profile.username}</div>
         <div className="profile-username">@{profile.username}</div>
         {profile.bio && <div className="profile-bio">{profile.bio}</div>}

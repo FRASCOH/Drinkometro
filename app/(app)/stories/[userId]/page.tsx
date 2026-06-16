@@ -159,9 +159,13 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
 
       {/* Header */}
       <div className="story-viewer-header">
-        <div className="avatar-placeholder avatar-sm" style={{ width: 36, height: 36, fontSize: '0.9rem' }}>
-          {storyUser?.display_name?.[0]?.toUpperCase() || '?'}
-        </div>
+        {storyUser?.avatar_url ? (
+          <img src={storyUser.avatar_url} className="avatar avatar-sm" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+        ) : (
+          <div className="avatar-placeholder avatar-sm" style={{ width: 36, height: 36, fontSize: '0.9rem' }}>
+            {storyUser?.display_name?.[0]?.toUpperCase() || '?'}
+          </div>
+        )}
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)' }}>
             {storyUser?.display_name || storyUser?.username}

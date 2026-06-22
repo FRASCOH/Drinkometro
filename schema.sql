@@ -201,11 +201,10 @@ CREATE POLICY "Friends can view drinks" ON drinks FOR SELECT USING (
   )
 );
 
--- Stories: owner can CRUD, friends can read (only non-expired)
+-- Stories: owner can CRUD, friends can read (all stories including expired ones for highlights)
 CREATE POLICY "Users can CRUD own stories" ON stories FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Friends can view active stories" ON stories FOR SELECT USING (
-  expires_at > NOW()
-  AND EXISTS (
+CREATE POLICY "Friends can view all stories" ON stories FOR SELECT USING (
+  EXISTS (
     SELECT 1 FROM friendships
     WHERE status = 'accepted'
     AND (

@@ -164,17 +164,19 @@ export default function FriendsPage() {
           <div className="glass-card-flat">
             {searchResults.map((u) => (
               <div key={u.id} className="friend-item">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                ) : (
-                  <div className="avatar-placeholder avatar-md">
-                    {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                <Link href={`/profile/${u.id}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                  ) : (
+                    <div className="avatar-placeholder avatar-md">
+                      {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="friend-info">
+                    <h4>{u.display_name || u.username}</h4>
+                    <span>@{u.username} · Lv.{u.level}</span>
                   </div>
-                )}
-                <div className="friend-info">
-                  <h4>{u.display_name || u.username}</h4>
-                  <span>@{u.username} · Lv.{u.level}</span>
-                </div>
+                </Link>
                 <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => sendRequest(u.id)}>
                   Aggiungi
                 </button>
@@ -191,17 +193,19 @@ export default function FriendsPage() {
           <div className="glass-card-flat">
             {suggestions.map((u) => (
               <div key={u.id} className="friend-item">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                ) : (
-                  <div className="avatar-placeholder avatar-md">
-                    {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                <Link href={`/profile/${u.id}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                  ) : (
+                    <div className="avatar-placeholder avatar-md">
+                      {u.display_name?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="friend-info">
+                    <h4>{u.display_name || u.username}</h4>
+                    <span>@{u.username} · Lv.{u.level}</span>
                   </div>
-                )}
-                <div className="friend-info">
-                  <h4>{u.display_name || u.username}</h4>
-                  <span>@{u.username} · Lv.{u.level}</span>
-                </div>
+                </Link>
                 <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => sendRequest(u.id)}>
                   Aggiungi
                 </button>
@@ -261,17 +265,19 @@ export default function FriendsPage() {
             <div className="glass-card-flat stagger">
               {requests.map((req) => (
                 <div key={req.id} className="friend-item">
-                  {req.avatar_url ? (
-                    <img src={req.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                  ) : (
-                    <div className="avatar-placeholder avatar-md">
-                      {req.display_name?.[0]?.toUpperCase() || req.username[0].toUpperCase()}
+                  <Link href={`/profile/${req.id}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                    {req.avatar_url ? (
+                      <img src={req.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    ) : (
+                      <div className="avatar-placeholder avatar-md">
+                        {req.display_name?.[0]?.toUpperCase() || req.username[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="friend-info">
+                      <h4>{req.display_name || req.username}</h4>
+                      <span>@{req.username}</span>
                     </div>
-                  )}
-                  <div className="friend-info">
-                    <h4>{req.display_name || req.username}</h4>
-                    <span>@{req.username}</span>
-                  </div>
+                  </Link>
                   <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                     <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => acceptRequest(req.friendship_id)}>
                       ✓

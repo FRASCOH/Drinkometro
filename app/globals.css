@@ -838,6 +838,12 @@ ul, ol { list-style: none; }
   gap: var(--space-md);
   padding: var(--space-md);
   border-bottom: 1px solid var(--glass-border);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.leaderboard-item:hover {
+  background: var(--glass-bg-hover);
 }
 
 .leaderboard-item:last-child {

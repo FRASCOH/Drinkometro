@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useApp } from '@/lib/context';
 import type { Story, Profile } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 export default function StoryViewerPage({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = use(params);
   const { user } = useApp();
+  const searchParams = useSearchParams();
+  const showAll = searchParams.get('all') === 'true';
   const [stories, setStories] = useState<Story[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -21,7 +24,7 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
 
   useEffect(() => {
     loadStories();
-  }, [userId]);
+  }, [userId, showAll]);
 
   useEffect(() => {
     if (stories.length === 0 || paused) return;
@@ -58,13 +61,16 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
       .single();
     setStoryUser(profile);
 
-    const { data } = await supabase
+    let query = supabase
       .from('stories')
       .select('*')
-      .eq('user_id', userId)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: true });
+      .eq('user_id', userId);
 
+    if (!showAll) {
+      query = query.gt('expires_at', new Date().toISOString());
+    }
+
+    const { data } = await query.order('created_at', { ascending: true });
     setStories(data || []);
   };
 
@@ -159,18 +165,23 @@ export default function StoryViewerPage({ params }: { params: Promise<{ userId: 
 
       {/* Header */}
       <div className="story-viewer-header">
-        {storyUser?.avatar_url ? (
-          <img src={storyUser.avatar_url} className="avatar avatar-sm" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} alt="" />
-        ) : (
-          <div className="avatar-placeholder avatar-sm" style={{ width: 36, height: 36, fontSize: '0.9rem' }}>
-            {storyUser?.display_name?.[0]?.toUpperCase() || '?'}
+        <Link 
+          href={storyUser?.id === user?.id ? '/profile' : `/profile/${storyUser?.id}`} 
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flex: 1, textDecoration: 'none', color: 'inherit' }}
+        >
+          {storyUser?.avatar_url ? (
+            <img src={storyUser.avatar_url} className="avatar avatar-sm" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+          ) : (
+            <div className="avatar-placeholder avatar-sm" style={{ width: 36, height: 36, fontSize: '0.9rem' }}>
+              {storyUser?.display_name?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)' }}>
+              {storyUser?.display_name || storyUser?.username}
+            </div>
           </div>
-        )}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)' }}>
-            {storyUser?.display_name || storyUser?.username}
-          </div>
-        </div>
+        </Link>
         {storyUser?.id === user?.id && (
           <button 
             onClick={handleDeleteStory} 

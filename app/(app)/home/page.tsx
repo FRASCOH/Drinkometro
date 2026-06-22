@@ -292,7 +292,7 @@ export default function HomePage() {
               <div key={drink.id} className="drink-card animate-fade-in-up">
                 {/* Card Header */}
                 <div className="drink-card-header">
-                  <div className="drink-card-user">
+                  <Link href={drink.user_id === user?.id ? '/profile' : `/profile/${drink.user_id}`} className="drink-card-user" style={{ textDecoration: 'none', color: 'inherit' }}>
                     {drink.profiles?.avatar_url ? (
                       <img src={drink.profiles.avatar_url} className="avatar avatar-md" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
                     ) : (
@@ -304,7 +304,7 @@ export default function HomePage() {
                       <h3>{drink.profiles?.display_name || drink.profiles?.username}</h3>
                       <span>{timeAgo(drink.created_at)}</span>
                     </div>
-                  </div>
+                  </Link>
                   {drink.user_id === user?.id && (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button 
@@ -419,15 +419,19 @@ export default function HomePage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', maxHeight: '180px', overflowY: 'auto', marginBottom: 'var(--space-md)' }}>
                         {drink.drink_comments?.map((c: any) => (
                           <div key={c.id} style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start', fontSize: 'var(--font-sm)' }}>
-                            {c.profiles?.avatar_url ? (
-                              <img src={c.profiles.avatar_url} className="avatar avatar-sm" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
-                            ) : (
-                              <div className="avatar-placeholder avatar-sm" style={{ width: 28, height: 28, fontSize: '0.75rem', flexShrink: 0 }}>
-                                {c.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                              </div>
-                            )}
+                            <Link href={c.user_id === user?.id ? '/profile' : `/profile/${c.user_id}`}>
+                              {c.profiles?.avatar_url ? (
+                                <img src={c.profiles.avatar_url} className="avatar avatar-sm" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                              ) : (
+                                <div className="avatar-placeholder avatar-sm" style={{ width: 28, height: 28, fontSize: '0.75rem', flexShrink: 0 }}>
+                                  {c.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                                </div>
+                              )}
+                            </Link>
                             <div style={{ background: 'var(--glass-bg)', padding: '6px 12px', borderRadius: 'var(--radius-md)', flex: 1 }}>
-                              <span style={{ fontWeight: 600, marginRight: 8 }}>{c.profiles?.display_name || c.profiles?.username}</span>
+                              <Link href={c.user_id === user?.id ? '/profile' : `/profile/${c.user_id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600, marginRight: 8 }}>
+                                {c.profiles?.display_name || c.profiles?.username}
+                              </Link>
                               <span style={{ color: 'var(--text-secondary)' }}>{c.content}</span>
                             </div>
                           </div>

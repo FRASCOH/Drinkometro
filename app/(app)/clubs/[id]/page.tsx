@@ -165,7 +165,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
         <div className="section">
           <div className="glass-card-flat">
             {members.map((member, i) => (
-              <div key={member.id} className="leaderboard-item animate-slide-in" style={{ animationDelay: `${i * 60}ms` }}>
+              <Link key={member.id} href={`/profile/${member.id}`} className="leaderboard-item animate-slide-in" style={{ animationDelay: `${i * 60}ms`, textDecoration: 'none', color: 'inherit' }}>
                 <div className={`leaderboard-rank ${getRankStyle(i)}`}>
                   {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                 </div>
@@ -181,7 +181,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
                   <span>Lv.{member.level} · {member.total_drinks} drink</span>
                 </div>
                 <div className="leaderboard-score">{member.xp}</div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
